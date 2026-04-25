@@ -130,14 +130,17 @@ if ! command -v insync &>/dev/null; then
   sudo apt update
   sudo apt install -y insync
 
-  # Cinnamon の Nemo 連携
-  DE="${XDG_CURRENT_DESKTOP,,}"
-  case "$DE" in
-    *cinnamon*) sudo apt install -y insync-nemo 2>/dev/null || true ;;
-    *mate*)     sudo apt install -y insync-caja 2>/dev/null || true ;;
-    *xfce*)     sudo apt install -y insync-thunar 2>/dev/null || true ;;
-    *gnome*)    sudo apt install -y insync-nautilus 2>/dev/null || true ;;
-  esac
+  # ⚠️ ファイラー連携プラグイン (insync-nemo / insync-thunar 等) は
+  # 意図的にインストールしません。これらは Python ベースで動作し、
+  # システムの PyGObject に依存するため、pyenv 等と相性が悪く
+  # ファイラーやデスクトップ環境を巻き込んでクラッシュさせる
+  # 既知の問題があります。
+  #
+  # 同期機能は本体だけで完全に動作します。右クリックメニューの
+  # 「Insync で共有」等が必要な場合のみ、手動でインストールしてください:
+  #   sudo apt install insync-nemo    # Cinnamon
+  #   sudo apt install insync-thunar  # XFCE  (※ファイラー全般の不安定化リスクあり)
+  log "  ファイラー連携プラグインはスキップしました (詳細はコメント参照)"
 else
   log "Insync は既にインストール済み"
 fi

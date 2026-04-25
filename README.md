@@ -148,7 +148,36 @@ git pull
 
 ## トラブルシューティング
 
+### デスクトップが真っ黒になる
+
+Cinnamon または XFCE のデスクトップ背景が真っ黒で、ファイラーも開けない場合:
+
+```bash
+# 原因: Insync の ファイラー連携プラグイン (Python製) がクラッシュさせている
+sudo apt remove -y insync-nemo insync-thunar insync-caja insync-nautilus
+
+# 再起動
+sudo reboot
+```
+
+Insync 本体 (同期機能) は残るので、Google Drive 同期は引き続き動きます。
+失われるのは「右クリック → Insync で共有」のメニュー機能だけです。
+
+### ファイラーや Cinnamon 系アプリが PyGObject エラーで落ちる
+
+```
+ImportError: ... undefined symbol: PyExc_NotImplementedError
+```
+
+このエラーが出る場合は pyenv が悪さしています:
+
+```bash
+pyenv global system          # システム Python に戻す
+sudo reboot                   # または cinnamon --replace で復旧
+```
+
 ### スクリプトが途中で失敗した
+
 各スクリプトは冪等です。失敗箇所を直して再実行すれば、成功した部分はスキップされます。
 
 ### 日本語入力が効かない
@@ -171,6 +200,44 @@ docker グループへの追加は **再ログインで反映** されます:
 ```bash
 sudo reboot
 ```
+
+## ⚠️ 重要: pyenv の使い方
+
+Linux Mint は内部でシステムの Python (`/usr/bin/python3`) を使って Cinnamon
+デスクトップや Nemo (ファイラー) を動かしています。
+
+`pyenv global 3.x.x` で別バージョンに切り替えると、システムが期待する
+PyGObject などの Python モジュールが見つからなくなり、**Cinnamon が起動
+しなくなります** (デスクトップが真っ黒になる症状)。
+
+### 正しい使い方
+
+```bash
+# ❌ NG: システムが壊れる
+pyenv global 3.13.0
+
+# ✅ OK: プロジェクト単位で切り替え
+cd ~/projects/my-app
+pyenv local 3.13.0          # .python-version が作られる
+python3 --version           # → 3.13.0 (このフォルダだけ)
+
+# システム全体は system のまま維持
+pyenv global system
+```
+
+### もし真っ黒になったら
+
+ターミナルから:
+```bash
+pyenv global system
+cinnamon --replace > /tmp/cinnamon.log 2>&1 &
+disown
+```
+
+`install-runtimes.sh` は最新版でこの問題を回避するよう修正されています
+(`pyenv global` を変更しない設計)。
+
+---
 
 ## ライセンス
 

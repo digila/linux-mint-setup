@@ -4,22 +4,23 @@
 #
 # 各ランタイムを最新版または指定バージョンでインストール
 #
-# 使い方:
-#   ./scripts/install-runtimes.sh latest
-#       Node.js 最新LTS / Python 最新安定 / PHP 最新安定 を一括インストール
+# ⚠️ 安全設計:
+#   - Python (pyenv) は global を変更しません
+#     理由: Cinnamon/Nemo などのシステムツールが /usr/bin/python3 を
+#           期待しているため、pyenv global を変えると Linux Mint の
+#           デスクトップが起動しなくなります (既知のバグ)
+#     代替: プロジェクトごとに `pyenv local 3.x.y` で切り替えてください
+#   - PHP (phpenv) は global を変更します (システム干渉なし)
+#   - Node (fnm)   は default を設定します (システム干渉なし)
 #
+# 使い方:
+#   ./scripts/install-runtimes.sh latest          # Node + Python + PHP
 #   ./scripts/install-runtimes.sh node latest
 #   ./scripts/install-runtimes.sh node 22 20
-#       Node.js のみ
-#
 #   ./scripts/install-runtimes.sh python latest
-#   ./scripts/install-runtimes.sh python 3.12.7 3.11.9
-#       Python のみ
-#
+#   ./scripts/install-runtimes.sh python 3.13.0 3.12.7
 #   ./scripts/install-runtimes.sh php latest
 #   ./scripts/install-runtimes.sh php 8.2 8.3 8.4
-#   ./scripts/install-runtimes.sh php 8.2.25 8.3.13
-#       PHP のみ (拡張: Xdebug + Redis + Imagick も自動インストール)
 #
 
 set -uo pipefail
@@ -34,9 +35,6 @@ command -v phpenv >/dev/null 2>&1 && eval "$(phpenv init - bash)"
 
 JOBS=$(nproc)
 
-# ============================================================
-# 引数処理
-# ============================================================
 TARGET="${1:-}"
 shift || true
 
@@ -45,17 +43,20 @@ if [[ -z "$TARGET" ]]; then
 使い方:
   $0 latest                  # Node + Python + PHP の最新を一括
   $0 node latest             # Node の最新LTS
-  $0 node 22 20              # Node の特定バージョン (複数指定可)
+  $0 node 22 20
   $0 python latest
-  $0 python 3.12.7
+  $0 python 3.13.0
   $0 php latest
   $0 php 8.2 8.3 8.4         # PHPは複数指定推奨 (Xdebug+Redis+Imagick自動)
+
+⚠️ Python の global は変更しません (システム破壊防止)
+   プロジェクトでは:  pyenv local 3.13.0
 EOS
   exit 1
 fi
 
 # ============================================================
-# Node.js インストール (fnm)
+# Node.js (fnm) - default 設定OK
 # ============================================================
 install_node() {
   local versions=("$@")
@@ -81,7 +82,7 @@ install_node() {
 }
 
 # ============================================================
-# Python インストール (pyenv)
+# Python (pyenv) - global は変更しない
 # ============================================================
 install_python() {
   local versions=("$@")
@@ -113,16 +114,30 @@ install_python() {
     fi
   done
 
-  pyenv global "${versions[-1]}"
   pyenv rehash
-  log "  global: Python $(python --version 2>&1 | awk '{print $2}')"
 
-  python -m pip install --upgrade pip --quiet 2>/dev/null && \
-    log "  pip 更新: $(pip --version | awk '{print $2}')"
+  # ⚠️ pyenv global は変更しない (Cinnamon/Nemo破壊防止)
+  # 現在の global 設定を確認
+  local current_global
+  current_global=$(pyenv global 2>/dev/null || echo "system")
+
+  if [[ "$current_global" != "system" ]]; then
+    warn "  pyenv global が '$current_global' に設定されています"
+    warn "  Linux デスクトップでは 'system' を強く推奨します"
+    warn "  修正するには:  pyenv global system"
+  else
+    log "  pyenv global: system (推奨設定のまま)"
+  fi
+
+  echo
+  log "  ✅ インストール完了。プロジェクトでの切り替え方:"
+  for v in "${versions[@]}"; do
+    log "      cd your-project && pyenv local $v"
+  done
 }
 
 # ============================================================
-# PHP インストール + 拡張 (phpenv + php-build)
+# PHP (phpenv + php-build) - global 設定OK (システム干渉なし)
 # ============================================================
 install_php_extensions() {
   local version="$1"
@@ -176,7 +191,7 @@ INI
       echo "extension=imagick.so" > "$conf_d/imagick.ini"
       log "      ✓ Imagick"
     else
-      warn "    Imagick インストール失敗 (PHP $version との互換性問題の可能性)"
+      warn "    Imagick インストール失敗"
     fi
   fi
 
@@ -206,7 +221,6 @@ install_php() {
   log "php-build プラグインを最新化..."
   git -C "$HOME/.phpenv/plugins/php-build" pull --ff-only 2>/dev/null || true
 
-  # libmagickwand-dev (Imagick用)
   sudo apt install -y libmagickwand-dev 2>/dev/null || true
 
   if [[ "${versions[0]:-}" == "latest" ]] || [[ ${#versions[@]} -eq 0 ]]; then
@@ -250,6 +264,7 @@ install_php() {
     installed+=("$v")
   done
 
+  # PHPはシステム干渉しないので global 設定OK
   if [[ ${#installed[@]} -gt 0 ]]; then
     local latest
     latest=$(printf '%s\n' "${installed[@]}" | sort -V | tail -1)
@@ -296,14 +311,27 @@ log "完了 🎉"
 echo "=============================================="
 echo
 command -v node   >/dev/null && printf "  %-10s %s\n" "Node:"   "$(node --version)"
-command -v python >/dev/null && printf "  %-10s %s\n" "Python:" "$(python --version 2>&1 | awk '{print $2}')"
 command -v php    >/dev/null && printf "  %-10s %s\n" "PHP:"    "$(php --version | head -1 | awk '{print $2}')"
 command -v composer >/dev/null && printf "  %-10s %s\n" "Composer:" "$(composer --version 2>&1 | awk '{print $3}')"
-echo
 
+# Python は system のはずなのでシステム版を表示
+local_py=$(/usr/bin/python3 --version 2>&1 | awk '{print $2}')
+printf "  %-10s %s (system, デスクトップ用)\n" "Python:" "$local_py"
+
+# pyenv のインストール済み一覧
+if command -v pyenv >/dev/null; then
+  echo "  Python (pyenv 管理):"
+  pyenv versions --bare 2>/dev/null | grep -v '^system$' | sed 's/^/      /'
+fi
+
+echo
 cat <<'EOS'
 プロジェクトごとのバージョン切替:
     echo "lts/*" > .nvmrc          # Node.js
-    pyenv local 3.12.7              # Python
-    phpenv local 8.3.13             # PHP
+    pyenv local 3.13.0              # Python (.python-version 作成)
+    phpenv local 8.3.13             # PHP (.php-version 作成)
+
+⚠️ Python は pyenv global system のままにしてください
+   システムのPython3を pyenv のバージョンに切り替えると
+   Cinnamon (Linux Mint デスクトップ) が起動しなくなります。
 EOS
