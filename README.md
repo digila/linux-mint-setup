@@ -1,40 +1,152 @@
 # linux-mint-setup
 
-Linux Mint (Cinnamon / XFCE) の開発環境を新規 PC で再現するためのセットアップスクリプト集。
-**PHP/Laravel + Python + JavaScript/TypeScript** 開発を主目的としています。
+Linux Mint (Cinnamon / XFCE) 上で **PHP/Laravel + Python + JavaScript/TypeScript**
+の開発環境をワンコマンドで構築するスクリプト集です。
+
+新しい PC に Linux Mint を入れた直後の真っ新な状態から、`bootstrap.sh` 1 つで
+**日本語入力・開発ランタイム・モダンなターミナル・主要 IDE** まで揃います。
+
+---
+
+## 動作確認環境
+
+- **OS**: Linux Mint 22.x (Cinnamon / XFCE)、ベースは Ubuntu 24.04 (Noble)
+- **CPU**: Intel x86_64 (ARM 未対応)
+- **RAM**: 推奨 8GB 以上 (4GB でも動作はします)
+- **キーボード**: 日本語 (JIS) 配列推奨
+
+Ubuntu 24.04 系であれば Linux Mint 以外の派生でもおおむね動くはずですが、
+`xdg-open` の挙動や Cinnamon 固有の設定 (NumLock 等) は Mint を前提にしています。
+
+## インストールされるもの一覧
+
+### 開発ランタイム
+
+| カテゴリ | ツール | 用途 |
+|---|---|---|
+| バージョン管理 | **fnm** | Node.js のバージョン切替 (`.nvmrc` 自動切替) |
+| バージョン管理 | **pyenv** | Python のバージョン切替 (`.python-version`) |
+| バージョン管理 | **phpenv + php-build** | PHP のバージョン切替 (`.php-version`) |
+| パッケージ管理 | **Composer** | PHP のパッケージ管理 |
+| AI コーディング | **Claude Code** | ターミナル AI アシスタント |
+| Git | **Git** | バージョン管理 (日本語ファイル名対応) |
+
+PHP には Xdebug / Redis / Imagick の各拡張も自動でインストールされます
+(`install-runtimes.sh php` 実行時)。
+
+### ターミナル環境
+
+| カテゴリ | ツール | 用途 |
+|---|---|---|
+| ターミナル | **WezTerm** | タブ + ペイン分割 + cwd 通知 |
+| プロンプト | **Starship** | PHP/Node/Python のバージョン自動表示 |
+| フォント | **PlemolJP** | 日本語等幅プログラミングフォント (全バリエーション) |
+| 検索 | **ripgrep** (`rg`) | 高速 grep |
+| ファイル探索 | **fd** | 高速 find |
+| ファイル表示 | **bat** | シンタックスハイライト付き cat |
+| ls 代替 | **eza** | アイコン・色・Git ステータス対応 |
+| あいまい検索 | **fzf** | コマンド履歴・ファイル選択 |
+| JSON | **jq** | JSON 整形・抽出 |
+| YAML | **yq** | YAML 整形・抽出 |
+| Git TUI | **lazygit** | ターミナル UI の Git クライアント |
+| 環境変数 | **direnv** | プロジェクト別の自動環境変数読み込み |
+| HTTPS | **mkcert** | ローカル開発用の信頼済み証明書発行 |
+
+### GUI アプリケーション
+
+| カテゴリ | アプリ | 用途 |
+|---|---|---|
+| エディタ / IDE | **Google Antigravity** | AI 統合 IDE (VS Code ベース) |
+| エディタ / IDE | **VS Code** | Microsoft 公式エディタ |
+| ブラウザ | **Google Chrome** | デフォルトブラウザに設定済み |
+| Git GUI | **GitKraken** | グラフィカル Git クライアント |
+| コミュニケーション | **Slack** (Flatpak) | チャット |
+| コンテナ | **Docker Engine + Compose** | コンテナ実行環境 |
+| Google Drive | **Insync** ($39.99) | Google Drive 同期 (有償) |
+| メールテスト | **Mailpit** | Laravel 等のメール送信確認用 SMTP サーバ |
+| スクリーンショット | **Flameshot** | 矩形選択・注釈付きスクショ |
+
+### システム設定
+
+| 項目 | 内容 |
+|---|---|
+| 日本語入力 | fcitx5 + mozc (**Mac 風キーバインド**: かな で ON / 英数 で OFF) |
+| キーボード | NumLock 起動時 ON (LightDM + systemd の二重設定) |
+| ターミナル統合 | OSC 7 によるカレントディレクトリ通知 (ペイン分割で同じ cwd で開く) |
+| 設定ファイル管理 | dotfiles をシンボリックリンクで配置 (Git 管理可能) |
+
+### 含まれない / 別途必要なもの
+
+- **Node.js / Python / PHP の本体**: `install-runtimes.sh` で別途インストール
+- **JetBrains 系 IDE** (PhpStorm 等): 必要なら手動で
+- **MySQL / PostgreSQL / Redis 等の DB**: Docker での運用を推奨
+- **Adobe 系・MS Office 系**: Linux 版を別途インストールするか Web 版を使用
 
 ## クイックスタート
 
-新 PC で以下を実行するだけで全部入ります。
+### Step 0: 前提パッケージのインストール
 
-### SSH 鍵を持っている場合 (推奨)
+Linux Mint をインストールした直後の状態を想定しています。
+**Git すら入っていない状態**から始めるので、まず Git と curl をインストールします。
 
 ```bash
-sudo apt update && sudo apt install -y git
-git clone git@github.com:YOUR_USERNAME/linux-mint-setup.git ~/linux-mint-setup
-cd ~/linux-mint-setup
-./bootstrap.sh
+sudo apt update && sudo apt install -y git curl
 ```
 
-### SSH 鍵がまだない場合
+### Step 1: クローン
 
 ```bash
-sudo apt update && sudo apt install -y git
+# このリポジトリをそのまま使う場合
+git clone https://github.com/digila/linux-mint-setup.git ~/linux-mint-setup
+
+# 自分用にカスタマイズしたい場合は GitHub で Fork してから
 git clone https://github.com/YOUR_USERNAME/linux-mint-setup.git ~/linux-mint-setup
-# プライベートリポジトリの場合、GitHub Personal Access Token (PAT) が必要
-# https://github.com/settings/tokens から作成して、ユーザー名とトークンを入力
+
 cd ~/linux-mint-setup
+```
+
+(自分でフォークして使う場合は `YOUR_USERNAME` を自分のユーザー名に置き換えてください)
+
+### Step 2: bootstrap 実行
+
+```bash
 ./bootstrap.sh
 ```
 
-`bootstrap.sh` 完了後、以下の補助スクリプトを必要に応じて実行します:
+確認プロンプトに `y` で答えると、4 つのスクリプトが順に実行されます (約 30〜60 分):
+
+1. システム基本 (日本語入力・NumLock・Chrome)
+2. 開発ランタイム (Git・fnm・pyenv・phpenv・Composer・Claude Code)
+3. ターミナル環境 (WezTerm・Starship・PlemolJP・モダン CLI)
+4. GUI アプリ (Docker・VS Code・Antigravity・GitKraken・Slack・Insync)
+
+完了後、必要に応じて以下の補助スクリプトを実行します:
 
 ```bash
 ./scripts/install-runtimes.sh latest          # Node.js / Python / PHP の最新版
 ./scripts/antigravity-extensions.sh install   # Antigravity 拡張機能を一括導入
-./scripts/fix-intel-gpu-electron-apps.sh      # Intel HD Graphics 環境のフリーズ対策
+./scripts/fix-intel-gpu-electron-apps.sh      # Intel HD Graphics 環境のフリーズ対策 (該当機のみ)
 ./scripts/optimize-boot.sh                    # 起動時間の短縮 (任意)
 ```
+
+### Step 3: 仕上げ
+
+```bash
+# Git のユーザー設定 (まだなら)
+git config --global user.name  "あなたの名前"
+git config --global user.email "you@example.com"
+
+# 再起動 (Docker / NumLock / 日本語入力を完全有効化)
+sudo reboot
+```
+
+再起動後、各アプリの初回ログイン:
+
+- **Insync**: メニューから起動 → Google アカウントでログイン
+- **Antigravity**: メニューから起動 → 個人 Gmail でログイン
+- **GitKraken**: メニューから起動 → GitHub と連携
+- **Slack**: メニューから起動 → ワークスペースに参加
+- **Claude Code**: ターミナルで `cd プロジェクト && claude`
 
 ## 含まれるもの
 
@@ -83,7 +195,8 @@ cd ~/linux-mint-setup
 
 #### install-runtimes.sh: ランタイム本体のインストール
 
-`02-dev-runtime.sh` で各ツール (fnm/pyenv/phpenv) は入れていますが、Node.js/Python/PHP 本体は別途インストールします。
+`02-dev-runtime.sh` で各ツール (fnm/pyenv/phpenv) は入れていますが、
+Node.js/Python/PHP 本体は別途インストールします。
 
 ```bash
 # 各ランタイムの最新版を一括
@@ -99,7 +212,7 @@ cd ~/linux-mint-setup
 ```
 
 > ⚠️ Python は `pyenv global` を変更しません。
-> 詳細は下の「[pyenv の使い方](#-重要-pyenv-の使い方)」を参照。
+> 詳細は下の [pyenv の使い方](#-重要-pyenv-の使い方) を参照。
 
 #### antigravity-extensions.sh: Antigravity 拡張機能の同期
 
@@ -142,7 +255,8 @@ sudo reboot
 ./scripts/optimize-boot.sh
 ```
 
-`NetworkManager-wait-online` の無効化、GRUB タイムアウト短縮、Cinnamon 設定デーモンの無駄起動抑制などで **約 8〜10 秒短縮** できます。
+`NetworkManager-wait-online` の無効化、GRUB タイムアウト短縮、Cinnamon 設定
+デーモンの無駄起動抑制などで **約 8〜10 秒短縮** できます。
 
 ## ディレクトリ構造
 
@@ -183,7 +297,7 @@ linux-mint-setup/
 これにより:
 
 - リポジトリ側のファイルを編集すると **即座にターミナル動作に反映**
-- `git commit` してプッシュすれば 別 PC で `git pull` するだけで設定が同期
+- 自分でフォークして使えば、`git commit` & `git push` で別 PC に設定を同期できる
 - 設定変更の履歴が `git log` で追える
 
 `antigravity-extensions.txt` は通常ファイル(リンクではなく)で管理しています。
@@ -203,38 +317,26 @@ linux-mint-setup/
 各スクリプトは**冪等**(再実行しても壊れない)に作ってあるので、
 追加で何か入れたいときに何度でも回せます。
 
-## 設定変更のワークフロー (複数 PC 運用)
+## 自分用にカスタマイズして使う
+
+このリポジトリは「動く参考実装」です。自分用に変えたい場合は **フォーク** して使ってください:
 
 ```bash
-# PC A で WezTerm の設定を変更
+# 1. GitHub でこのリポジトリを Fork
+# 2. 自分のフォーク先からクローン
+git clone https://github.com/YOUR_USERNAME/linux-mint-setup.git ~/linux-mint-setup
 cd ~/linux-mint-setup
+
+# 3. dotfiles を編集して push
 vim dotfiles/wezterm.lua
-# WezTerm が自動再読み込みするので動作確認
-
-# 良ければコミット
-git add dotfiles/wezterm.lua
-git commit -m "Adjust WezTerm font size"
+git add -A
+git commit -m "Customize WezTerm"
 git push
 
-# PC B で取り込み
-cd ~/linux-mint-setup
-git pull
-# WezTerm は次の設定検出で自動再読み込み (再起動不要)
+# 4. 別 PC では git pull するだけで反映
 ```
 
-Antigravity 拡張機能の同期も同様:
-
-```bash
-# PC A で拡張機能を追加した後
-./scripts/antigravity-extensions.sh sync
-git add dotfiles/antigravity-extensions.txt
-git commit -m "Add new extension"
-git push
-
-# PC B で
-git pull
-./scripts/antigravity-extensions.sh install
-```
+複数 PC を運用する人は、自分用フォークを 1 つ作っておくと開発環境を完全に同期できます。
 
 ## トラブルシューティング
 
@@ -356,6 +458,9 @@ disown
 
 ## 既知の地雷ポイント (このリポジトリで対策済み)
 
+このスクリプト集を作る過程で発見した、**Linux Mint × pyenv × Insync × Electron**
+の組み合わせで起こる地雷とその対策を共有します:
+
 | # | 問題 | 対策箇所 |
 |---|---|---|
 | 1 | `bootstrap.sh` から呼んだ子スクリプトが sudo keep-alive を二重起動 → 完全フリーズ | `lib/common.sh` の `require_sudo` で環境変数チェック |
@@ -363,9 +468,11 @@ disown
 | 3 | Insync のファイラー連携プラグインが PyGObject 経由でファイラーを巻き込みクラッシュ | `04-apps.sh` でプラグインをインストールしない |
 | 4 | Intel HD Graphics 530 等で Electron アプリが拡張機能インストール時に PC 全体をフリーズ | `fix-intel-gpu-electron-apps.sh` で GPU 加速を無効化 |
 
+同じ環境で困っている人の参考になれば幸いです。
+
 ## ライセンス
 
-個人用設定なので公開・配布は想定していませんが、参考になれば自由にお使いください。
+[MIT License](LICENSE)
 
 ## 謝辞
 
