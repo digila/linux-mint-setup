@@ -8,7 +8,7 @@
 #   - Google Antigravity (AI IDE)
 #   - GitKraken
 #   - Slack (Flatpak)
-#   - Insync (Google Drive クライアント)
+#   - GitHub CLI (gh)
 #   - Mailpit (Laravel メールテスト)
 #   - Flameshot (スクリーンショット)
 #
@@ -115,34 +115,23 @@ else
 fi
 
 # ============================================================
-step "6/8  Insync (Google Drive クライアント)"
+step "6/8  GitHub CLI (gh)"
 # ============================================================
-if ! command -v insync &>/dev/null; then
+if ! command -v gh &>/dev/null; then
   sudo install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xACCAF35C" \
-    | sudo gpg --dearmor --yes -o /etc/apt/keyrings/insync.gpg
-  sudo chmod 644 /etc/apt/keyrings/insync.gpg
+  wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+  sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
 
-  echo "deb [signed-by=/etc/apt/keyrings/insync.gpg] http://apt.insync.io/ubuntu $UBU_CODENAME non-free contrib" \
-    | sudo tee /etc/apt/sources.list.d/insync.list > /dev/null
-  sudo chmod 644 /etc/apt/sources.list.d/insync.list
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
 
   sudo apt update
-  sudo apt install -y insync
+  sudo apt install -y gh
 
-  # ⚠️ ファイラー連携プラグイン (insync-nemo / insync-thunar 等) は
-  # 意図的にインストールしません。これらは Python ベースで動作し、
-  # システムの PyGObject に依存するため、pyenv 等と相性が悪く
-  # ファイラーやデスクトップ環境を巻き込んでクラッシュさせる
-  # 既知の問題があります。
-  #
-  # 同期機能は本体だけで完全に動作します。右クリックメニューの
-  # 「Insync で共有」等が必要な場合のみ、手動でインストールしてください:
-  #   sudo apt install insync-nemo    # Cinnamon
-  #   sudo apt install insync-thunar  # XFCE  (※ファイラー全般の不安定化リスクあり)
-  log "  ファイラー連携プラグインはスキップしました (詳細はコメント参照)"
+  log "  インストール後 'gh auth login' で GitHub アカウントを認証してください"
 else
-  log "Insync は既にインストール済み"
+  log "GitHub CLI は既にインストール済み: $(gh --version | head -1)"
 fi
 
 # ============================================================
@@ -177,7 +166,7 @@ cat <<'EOS'
        pyenv install 3.13.0       # Python (例)
        phpenv install 8.3.13      # PHP (例、10〜20分かかります)
 
-  3. Insync を起動して Google アカウントでログイン
+  3. gh auth login で GitHub アカウントを認証
   4. Antigravity を起動して 個人 Gmail でログイン
 
 【ヒント】各ランタイムを最新版で一括導入したい場合:

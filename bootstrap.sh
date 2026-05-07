@@ -67,7 +67,7 @@ case "$TARGET" in
     log "  1. 01-system.sh    (日本語入力 / NumLock / Chrome)"
     log "  2. 02-dev-runtime.sh (Git / fnm / pyenv / phpenv / Composer / Claude Code)"
     log "  3. 03-terminal.sh    (WezTerm / Starship / フォント / CLI)"
-    log "  4. 04-apps.sh        (Docker / VS Code / Antigravity / GitKraken / Slack / Insync)"
+    log "  4. 04-apps.sh        (Docker / VS Code / Antigravity / GitKraken / Slack / gh)"
     echo
     log "推定所要時間: 30〜60分 (ネットワーク次第)"
     echo
