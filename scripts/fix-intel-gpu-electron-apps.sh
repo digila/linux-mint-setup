@@ -73,9 +73,12 @@ patch_desktop_file() {
 }
 
 # ---- Antigravity ----
+# 注意: antigravity.desktop には Exec= 行が複数ある (通常起動 + Desktop Action)。
+# パターンは絶対パス /usr/share/antigravity/antigravity から始まる必要がある。
+# (旧バグ: "antigravity\(.*\)" だと先頭がフルパスなのでマッチせず patch されていなかった)
 patch_desktop_file "Antigravity" "antigravity.desktop" \
-  "antigravity\(.*\)" \
-  "antigravity --disable-gpu --disable-software-rasterizer\1"
+  "/usr/share/antigravity/antigravity\(.*\)" \
+  "/usr/share/antigravity/antigravity --disable-gpu --disable-software-rasterizer\1"
 
 # ---- Google Chrome ----
 patch_desktop_file "Google Chrome" "google-chrome.desktop" \
@@ -103,6 +106,51 @@ if flatpak list 2>/dev/null | grep -q 'com\.slack\.Slack'; then
   flatpak override --user com.slack.Slack --command='sh' \
     --env=ELECTRON_DISABLE_GPU=1 2>/dev/null || true
   log "  ✓ Slack に環境変数 ELECTRON_DISABLE_GPU=1 を設定"
+fi
+
+# ---- Chrome PWA (Progressive Web App) ----
+# Chrome から「アプリとしてインストール」した PWA は専用の .desktop が
+# ~/.local/share/applications/chrome-<app-id>-<profile>.desktop として生成される。
+# これらは google-chrome.desktop の patch では効かない（独立した Exec 行を持つため）。
+# 例: Claude / Linear / Notion などを PWA 化している場合に該当。
+patch_chrome_pwa() {
+  local desktop_file="$1"
+  local app_label
+  app_label="$(grep -m1 '^Name=' "$desktop_file" | sed 's/^Name=//')"
+
+  step "Chrome PWA: ${app_label:-不明} の GPU加速を無効化"
+
+  # 既に --disable-gpu が入っていればスキップ
+  if grep -q '^Exec=.*--disable-gpu' "$desktop_file"; then
+    log "  既に対策済み (スキップ): $desktop_file"
+    return
+  fi
+
+  # Exec 行に google-chrome があれば、その直後に --disable-gpu を挿入
+  if grep -q '^Exec=.*google-chrome' "$desktop_file"; then
+    cp "$desktop_file" "$desktop_file.bak.$(date +%Y%m%d-%H%M%S)"
+    log "  バックアップ作成: $(basename "$desktop_file").bak.*"
+
+    sed -i 's|^\(Exec=[^ ]*google-chrome\)\( \)|\1 --disable-gpu --disable-software-rasterizer\2|' \
+      "$desktop_file"
+    log "  ✓ $(basename "$desktop_file") を修正"
+    log "    新しいExec: $(grep '^Exec=' "$desktop_file" | head -1)"
+  else
+    warn "  google-chrome の Exec パターンが見つかりません: $desktop_file"
+  fi
+}
+
+shopt -s nullglob
+pwa_files=("$USER_APPS_DIR"/chrome-*-*.desktop)
+shopt -u nullglob
+
+if (( ${#pwa_files[@]} > 0 )); then
+  step "Chrome PWA を検出: ${#pwa_files[@]} 件"
+  for f in "${pwa_files[@]}"; do
+    patch_chrome_pwa "$f"
+  done
+else
+  log "Chrome PWA は見つかりませんでした (スキップ)"
 fi
 
 # ============================================================
